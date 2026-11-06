@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Link & Email Risk Checker</title>
+<style>
+  :root{
+    --bg:#f6f5f1; --card:#ffffff; --ink:#15171a; --muted:#5d636b; --line:#e3e1da;
+    --red:#c62828; --red-bg:#fdecea; --amber:#a15c00; --amber-bg:#fff4e0;
+    --green:#1b7a46; --green-bg:#e7f5ec; --ink-bg:#15171a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:Geist,system-ui,sans-serif;line-height:1.5}
+  .wrap{max-width:860px;margin:0 auto;padding:24px 16px 40px}
+  header{display:flex;flex-direction:column;gap:4px;margin-bottom:18px}
+  .eyebrow{font-family:"Geist Mono",monospace;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  h1{margin:0;font-size:26px;letter-spacing:-.02em;line-height:1.15}
+  header p{margin:0;color:var(--muted);font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+  label{font-size:13px;font-weight:600;display:block;margin-bottom:8px}
+  textarea{width:100%;min-height:120px;resize:vertical;border:1px solid var(--line);border-radius:10px;padding:12px;font:13px/1.5 "Geist Mono",monospace;color:var(--ink);background:#fbfbf9}
+  textarea:focus-visible,button:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-top:12px}
+  .samples{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .samples span{font-size:12px;color:var(--muted);margin-right:2px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:5px 10px;font:12px Geist,sans-serif;color:var(--ink);cursor:pointer}
+  .chip:hover{background:#f0efea}
+  .primary{background:var(--ink-bg);color:#fff;border:0;border-radius:10px;padding:10px 16px;font:600 14px Geist,sans-serif;cursor:pointer}
+  .primary:hover{opacity:.9}
+  .hint{font-size:12px;color:var(--muted)}
+  #results{margin-top:16px;display:none;flex-direction:column;gap:14px}
+  .summary{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .gauge{--p:0;--c:var(--green);width:112px;height:112px;border-radius:50%;flex:none;
+    background:conic-gradient(var(--c) calc(var(--p)*1%), #ecebe6 0);display:grid;place-items:center}
+  .gauge-inner{width:88px;height:88px;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .gauge-num{font-size:30px;font-weight:700;letter-spacing:-.03em;line-height:1}
+  .gauge-lbl{font-family:"Geist Mono",monospace;font-size:10px;color:var(--muted);margin-top:2px}
+  .verdict{flex:1;min-width:220px}
+  .badge{display:inline-block;font-family:"Geist Mono",monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
+  .verdict h2{margin:6px 0 4px;font-size:20px;letter-spacing:-.01em}
+  .verdict p{margin:0;color:var(--muted);font-size:14px}
+  h3{font-size:13px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;font-family:"Geist Mono",monospace;color:var(--muted);font-weight:500}
+  ul.findings{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  .f{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;border:1px solid var(--line)}
+  .dot{width:9px;height:9px;border-radius:50%;margin-top:7px;flex:none}
+  .f-body{flex:1;min-width:0}
+  .f-title{font-weight:600;font-size:14px}
+  .f-detail{font-size:13px;color:var(--muted);word-break:break-word}
+  .pts{font-family:"Geist Mono",monospace;font-size:12px;font-weight:600;white-space:nowrap;margin-top:2px}
+  .high .dot{background:var(--red)} .high .pts{color:var(--red)}
+  .med .dot{background:var(--amber)} .med .pts{color:var(--amber)}
+  .low .dot{background:#8a8f96} .low .pts{color:var(--muted)}
+  .good .dot{background:var(--green)} .good .pts{color:var(--green)}
+  .url{font-family:"Geist Mono",monospace;font-size:13px;padding:10px 12px;border-radius:10px;background:#fbfbf9;border:1px solid var(--line);word-break:break-all}
+  .url + .url{margin-top:8px}
+  .url mark{background:#fff1a8;color:var(--ink);font-weight:700;padding:0 2px;border-radius:3px}
+  .url .meta{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-family:Geist,sans-serif;font-size:12px;color:var(--muted)}
+  .grid2{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:680px){.grid2{grid-template-columns:1.4fr 1fr}}
+  ol.tips{margin:0;padding-left:18px;font-size:13px;color:var(--ink)}
+  ol.tips li+li{margin-top:6px}
+  .note{font-size:12px;color:var(--muted);margin-top:10px;border-top:1px dashed var(--line);padding-top:10px}
+  code{font-family:"Geist Mono",monospace;font-size:12px;background:#f0efea;padding:1px 4px;border-radius:4px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .byline{font-size:12px;color:var(--muted)}
+  .byline strong{color:var(--ink);font-weight:600}
+  .site-footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--muted)}
+  .site-footer strong{color:var(--ink);font-weight:600}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <div class="topbar">
+      <span class="eyebrow">Phishing triage</span>
+      <span class="byline">Made by <strong>Shubham</strong></span>
+    </div>
+    <h1>Is this link safe to click?</h1>
+    <p>Paste a URL, an email address, or a whole email (headers included). Everything runs locally in your browser.</p>
+  </header>
+
+  <section class="card" aria-labelledby="in-label">
+    <label id="in-label" for="input">URL, sender address, or email text</label>
+    <textarea id="input" spellcheck="false" placeholder="https://paypa1-account-verify.com/login  —or—  paste a full email"></textarea>
+    <div class="row">
+      <div class="samples">
+        <span>Try:</span>
+        <button class="chip" data-sample="url">Lookalike URL</button>
+        <button class="chip" data-sample="email">Phishing email</button>
+        <button class="chip" data-sample="safe">Legit URL</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span class="hint">Ctrl/⌘ + Enter</span>
+        <button class="primary" id="go">Check risk</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="results" aria-live="polite">
+    <div class="card summary">
+      <div class="gauge" id="gauge" role="img" aria-label="Risk score">
+        <div class="gauge-inner"><span class="gauge-num" id="score">0</span><span class="gauge-lbl">/ 100 RISK</span></div>
+      </div>
+      <div class="verdict">
+        <span class="badge" id="badge">Low risk</span>
+        <h2 id="headline">Looks okay</h2>
+        <p id="sub"></p>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Why this score</h3>
+        <ul class="findings" id="findings"></ul>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px">
+        <div class="card">
+          <h3>Links found</h3>
+          <div id="urls"></div>
+        </div>
+        <div class="card">
+          <h3>What to do</h3>
+          <ol class="tips" id="tips"></ol>
+          <p class="note"><strong>Domain age:</strong> a live WHOIS/RDAP lookup needs a server, so this preview flags <em>known established</em> domains and marks others as unverified. Brand-new domains (&lt;30 days) are a strong phishing signal — the full app version would check this live.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <span>Designed &amp; built by <strong>Shubham</strong></span>
+    <span>&copy; <span id="year">2026</span> Shubham. All rights reserved.</span>
+  </footer>
+</main>
+
+<script>
+const BRANDS = {
+  paypal:["paypal.com"], apple:["apple.com","icloud.com"], microsoft:["microsoft.com","live.com","outlook.com","office.com","microsoftonline.com"],
+  google:["google.com","gmail.com","youtube.com"], amazon:["amazon.com","amazon.co.uk","amazon.de","aws.amazon.com"],
+  netflix:["netflix.com"], facebook:["facebook.com","fb.com","meta.com"], instagram:["instagram.com"], linkedin:["linkedin.com"],
+  chase:["chase.com"], bankofamerica:["bankofamerica.com","bofa.com"], wellsfargo:["wellsfargo.com"], dropbox:["dropbox.com"],
+  docusign:["docusign.com","docusign.net"], coinbase:["coinbase.com"], binance:["binance.com"], dhl:["dhl.com"], fedex:["fedex.com"],
+  usps:["usps.com"], ups:["ups.com"], irs:["irs.gov"], adobe:["adobe.com"], github:["github.com"], steam:["steampowered.com","steamcommunity.com"],
+  whatsapp:["whatsapp.com"], metamask:["metamask.io"], office365:["office.com"], outlook:["outlook.com"], icloud:["icloud.com"]
+};
+const OFFICIAL = new Set(Object.values(BRANDS).flat());
+const ESTABLISHED = new Set([...OFFICIAL,"wikipedia.org","vercel.com","stripe.com","x.com","twitter.com","reddit.com","yahoo.com","bing.com","slack.com","zoom.us","notion.so","shopify.com","ebay.com","walmart.com","cloudflare.com","nytimes.com","bbc.co.uk","proton.me"]);
+const FREEMAIL = new Set(["gmail.com","yahoo.com","outlook.com","hotmail.com","aol.com","proton.me","protonmail.com","icloud.com","mail.com","gmx.com","yandex.ru"]);
+const SHORTENERS = new Set(["bit.ly","tinyurl.com","t.co","goo.gl","ow.ly","is.gd","buff.ly","cutt.ly","rb.gy","shorturl.at","tiny.cc","rebrand.ly","s.id"]);
+const RISKY_TLDS = new Set(["zip","mov","xyz","top","tk","ml","ga","cf","gq","click","country","kim","work","rest","cam","icu","buzz","sbs","cfd","live","support","online","site","info","shop","quest","monster","lol"]);
+const MULTI_SUFFIX = ["co.uk","org.uk","ac.uk","com.au","net.au","co.jp","com.br","co.in","co.nz","com.mx","co.za","com.tr"];
+const KEYWORDS = ["login","log-in","signin","sign-in","verify","verification","secure","account","update","confirm","unlock","suspend","billing","wallet","password","reset","auth","webscr","recover"];
+const URGENCY = [
+  [/\burgent(ly)?\b/i,"“urgent”"],[/\bimmediately\b/i,"“immediately”"],[/within\s+\d+\s*(hours|hrs|h)\b/i,"a countdown deadline"],
+  [/\b(suspended|suspension|locked|disabled)\b/i,"account suspension threat"],[/verify\s+your\s+(account|identity|information)/i,"“verify your account”"],
+  [/unusual\s+(activity|sign-?in)/i,"“unusual activity”"],[/password\s+(will\s+)?expire/i,"password expiry"],[/gift\s*cards?/i,"gift cards"],
+  [/wire\s+transfer/i,"wire transfer"],[/\bclick\s+(here|below|the\s+link)\b/i,"“click here”"],[/final\s+(notice|warning)/i,"“final notice”"],
+  [/\b(invoice|payment)\s+(overdue|failed|declined)/i,"failed/overdue payment"],[/\bseed\s+phrase|recovery\s+phrase/i,"crypto seed phrase request"]
+];
+
+const SAMPLES = {
+  url:"hxxps://secure-login.paypa1-account[.]com/webscr/verify?session=8f2a&next=https://paypal.com",
+  email:`From: "PayPal Security" <service@paypal-alerts.support>
+Reply-To: resolution-team@gmail.com
+Subject: Final notice: your account has been suspended
+
+Dear Customer,
+
+We detected unusual activity on your account. Your access is suspended until you verify your account within 24 hours.
+
+Click here to restore access: http://bit.ly/3xPpL
+Or visit https://paypal.com.account-restore.cam/login
+
+PayPal Security Team`,
+  safe:"https://www.github.com/vercel/next.js"
+};
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function refang(s){ return s.replace(/hxxp/gi,"http").replace(/\[\.\]|\(\.\)|\{\.\}/g,".").replace(/\[:\]/g,":"); }
+
+function registrable(host){
+  const parts = host.split(".");
+  const last2 = parts.slice(-2).join(".");
+  if (MULTI_SUFFIX.includes(last2) && parts.length >= 3) return parts.slice(-3).join(".");
+  return last2;
+}
+function sldOf(reg){ return reg.split(".")[0]; }
+
+function lev(a,b){
+  const m=a.length,n=b.length; if(!m) return n; if(!n) return m;
+  let prev=Array.from({length:n+1},(_,i)=>i);
+  for(let i=1;i<=m;i++){ const cur=[i];
+    for(let j=1;j<=n;j++) cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));
+    prev=cur; }
+  return prev[n];
+}
+function deglyph(s){ return s.replace(/rn/g,"m").replace(/vv/g,"w").replace(/0/g,"o").replace(/1/g,"l").replace(/3/g,"e").replace(/5/g,"s").replace(/\$/g,"s").replace(/4/g,"a"); }
+
+function brandCheck(host, reg){
+  const out=[];
+  if (OFFICIAL.has(reg) || OFFICIAL.has(host)) return out;
+  const sld = sldOf(reg);
+  const labels = host.split(".");
+  for (const [brand, domains] of Object.entries(BRANDS)){
+    const official = domains[0];
+    const bSld = sldOf(official);
+    if (deglyph(sld) === bSld && sld !== bSld){
+      out.push({sev:"high",pts:40,title:`Lookalike of ${official}`,detail:`“${sld}” uses swapped characters (e.g. 1→l, 0→o, rn→m) to mimic ${brand}.`}); return out;
+    }
+    if (bSld.length >= 5 && lev(sld,bSld) > 0 && lev(sld,bSld) <= 2){
+      out.push({sev:"high",pts:35,title:`Typosquat of ${official}`,detail:`“${sld}” is ${lev(sld,bSld)} character(s) away from “${bSld}”.`}); return out;
+    }
+    const sldTokens = sld.split("-");
+    if (!sldTokens.includes(bSld) && deglyph(sld).split("-").includes(bSld)){
+      out.push({sev:"high",pts:40,title:`Lookalike of ${official}`,detail:`“${sld}” swaps characters (e.g. 1→l, 0→o) to read as “${bSld}”.`}); return out;
+    }
+    if (sld !== bSld && (sldTokens.includes(bSld) || deglyph(sld).includes(bSld) && bSld.length>=5)){
+      out.push({sev:"high",pts:30,title:`Brand name inside an unrelated domain`,detail:`“${reg}” contains “${bSld}” but isn’t owned by ${official}.`}); return out;
+    }
+    if (labels.slice(0,-reg.split(".").length).some(l => l===bSld || l.split("-").includes(bSld))){
+      out.push({sev:"high",pts:30,title:`“${bSld}” used as a subdomain decoy`,detail:`The real domain is ${reg}; “${bSld}” in front is just decoration.`}); return out;
+    }
+  }
+  return out;
+}
+
+function analyzeUrl(raw){
+  const f=[]; let s=refang(raw.trim()).replace(/[.,;:!?)\]]+$/,"");
+  if (/^(javascript|data|vbscript):/i.test(s)) return {raw,host:"(script)",reg:"",findings:[{sev:"high",pts:50,title:"Executable link scheme",detail:`${s.split(":")[0]}: links can run code or render fake pages.`}]};
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(s)) s = "http://" + s;
+  const rawHost = (s.match(/^[a-z]+:\/\/(?:[^\/@?#]*@)?([^\/:?#]+)/i)||[])[1]||"";
+  let u; try{ u=new URL(s); }catch{ return {raw,host:"?",reg:"",findings:[{sev:"med",pts:10,title:"Malformed URL",detail:"Couldn’t parse this link."}]}; }
+  const host=u.hostname.toLowerCase().replace(/^www\./,"");
+  const isIP=/^\d{1,3}(\.\d{1,3}){3}$/.test(host)||host.startsWith("[");
+  const reg=isIP?host:registrable(host);
+  const tld=host.split(".").pop();
+
+  if (u.protocol==="http:") f.push({sev:"low",pts:8,title:"No HTTPS",detail:"Traffic isn’t encrypted. Real login pages always use HTTPS."});
+  if (isIP) f.push({sev:"high",pts:30,title:"Raw IP address instead of a domain",detail:`${host} — legitimate services almost never link to bare IPs.`});
+  if (u.username || /^[a-z]+:\/\/[^\/]*@/i.test(s)) f.push({sev:"high",pts:45,title:"Hidden destination using “@”",detail:"Everything before “@” is ignored by the browser; the real site comes after it."});
+  if (/[^\x00-\x7F]/.test(rawHost) || host.includes("xn--")) f.push({sev:"high",pts:45,title:"International/punycode characters in domain",detail:"Non-Latin letters (e.g. Cyrillic “а”) can make a fake domain look identical to a real one."});
+  if (!isIP) f.push(...brandCheck(host,reg));
+  if (!isIP && RISKY_TLDS.has(tld)) f.push({sev:"med",pts:15,title:`High-abuse TLD: .${tld}`,detail:"This extension is cheap and disproportionately used for phishing."});
+  if (SHORTENERS.has(reg)||SHORTENERS.has(host)) f.push({sev:"med",pts:15,title:"URL shortener hides the destination",detail:`${host} redirects somewhere you can’t see before clicking.`});
+  const subDepth = host.split(".").length - reg.split(".").length;
+  if (!isIP && subDepth>=3) f.push({sev:"med",pts:10,title:"Unusually deep subdomains",detail:`${subDepth} subdomain levels — often used to push the real domain out of view.`});
+  if ((sldOf(reg).match(/-/g)||[]).length>=2) f.push({sev:"low",pts:8,title:"Many hyphens in domain",detail:`“${reg}” — hyphen-stuffed names are common in throwaway phishing domains.`});
+  const kw = KEYWORDS.filter(k => (host+u.pathname).toLowerCase().includes(k));
+  if (kw.length && !OFFICIAL.has(reg)) f.push({sev:kw.length>=2?"med":"low",pts:Math.min(6*kw.length,15),title:"Credential-bait keywords",detail:`Contains: ${kw.slice(0,4).join(", ")}.`});
+  if (u.port && !["80","443"].includes(u.port)) f.push({sev:"med",pts:10,title:`Non-standard port :${u.port}`,detail:"Real services rarely use custom ports in links."});
+  if (/[?&][a-z_]*(url|redirect|next|return|goto|dest)[a-z_]*=(https?|%2f|\/\/)/i.test(u.search)) f.push({sev:"low",pts:8,title:"Embedded redirect",detail:"The link carries another URL in its parameters, a common trick to look trustworthy."});
+  if (/\.(exe|scr|vbs|bat|msi|iso|zip|rar|apk|dmg)$/i.test(u.pathname)) f.push({sev:"med",pts:15,title:"Direct file download",detail:`Points to a ${u.pathname.split(".").pop().toUpperCase()} file.`});
+  if (s.length>120) f.push({sev:"low",pts:5,title:"Very long URL",detail:`${s.length} characters — length is often used to hide the real domain.`});
+  if ((s.match(/%[0-9a-f]{2}/gi)||[]).length>6) f.push({sev:"low",pts:5,title:"Heavily encoded characters",detail:"Lots of %-encoding can disguise what the link does."});
+
+  if (OFFICIAL.has(reg)) f.push({sev:"good",pts:-25,title:`Official domain: ${reg}`,detail:"This registrable domain belongs to the brand it represents."});
+  else if (ESTABLISHED.has(reg)) f.push({sev:"good",pts:-15,title:`Established domain: ${reg}`,detail:"Long-standing, widely used domain."});
+  else if (!isIP) f.push({sev:"low",pts:5,title:"Domain age unverified",detail:`${reg} isn’t on the known-established list. Check its registration date before trusting it.`});
+
+  return {raw,href:s,host,reg,isIP,findings:f};
+}
+
+function parseAddr(line){
+  if(!line) return null;
+  const addr=(line.match(/<([^>]+)>/)||line.match(/([^\s"<>]+@[^\s"<>]+)/)||[])[1];
+  if(!addr) return null;
+  const name=line.replace(/<[^>]*>/,"").replace(/"/g,"").trim();
+  const domain=addr.split("@")[1]?.toLowerCase().replace(/[>.,;]+$/,"");
+  return {name,addr,domain};
+}
+
+function analyzeSender(from, replyTo){
+  const f=[];
+  if(!from) return f;
+  const reg=registrable(from.domain);
+  const nameLc=(from.name||"").toLowerCase().replace(/\s+/g,"");
+  const claimed=Object.entries(BRANDS).find(([b])=>nameLc.includes(b));
+  if (claimed && !BRANDS[claimed[0]].some(d=>registrable(d)===reg)){
+    f.push({sev:"high",pts:30,title:`Display name claims “${from.name}”`,detail:`…but the email actually comes from ${from.domain}, not ${BRANDS[claimed[0]][0]}.`});
+  }
+  if (claimed && FREEMAIL.has(reg)) f.push({sev:"med",pts:15,title:"Company name on a free email account",detail:`Brands don’t send official mail from ${reg}.`});
+  f.push(...brandCheck(from.domain,reg).map(x=>({...x,title:"Sender: "+x.title})));
+  const tld=from.domain.split(".").pop();
+  if (RISKY_TLDS.has(tld)) f.push({sev:"med",pts:12,title:`Sender uses .${tld}`,detail:"High-abuse domain extension for the sender address."});
+  if (replyTo && registrable(replyTo.domain)!==reg) f.push({sev:"high",pts:20,title:"Reply-To goes somewhere else",detail:`Replies would go to ${replyTo.addr}, not ${from.addr}.`});
+  return f;
+}
+
+function analyze(text){
+  const input=refang(text.trim());
+  const findings=[]; const urls=[];
+  const single=!/\s/.test(input);
+  if (single && /^[^@\/]+@[^@\/]+\.[a-z]{2,}$/i.test(input)){
+    findings.push(...analyzeSender(parseAddr(input)));
+    if(!findings.length) findings.push({sev:"good",pts:0,title:"No sender red flags",detail:"Address domain doesn’t imitate a known brand."});
+  } else if (single){
+    urls.push(analyzeUrl(input));
+  } else {
+    const from=parseAddr((input.match(/^from:\s*(.+)$/im)||[])[1]);
+    const reply=parseAddr((input.match(/^reply-to:\s*(.+)$/im)||[])[1]);
+    findings.push(...analyzeSender(from,reply));
+    const hits=URGENCY.filter(([re])=>re.test(input)).map(([,l])=>l);
+    if(hits.length) findings.push({sev:hits.length>=3?"high":"med",pts:Math.min(hits.length*7,28),title:"Pressure & urgency language",detail:`Found ${hits.join(", ")}.`});
+    if(/\b(dear\s+(customer|user|member|client|sir\/madam))\b/i.test(input)) findings.push({sev:"low",pts:6,title:"Generic greeting",detail:"Real services usually address you by name."});
+    const found=[...new Set(input.match(/\b(?:https?:\/\/|www\.)[^\s<>"'()]+/gi)||[])];
+    found.slice(0,8).forEach(u=>urls.push(analyzeUrl(u)));
+    if(!found.length && !from) findings.push({sev:"low",pts:0,title:"No links or headers detected",detail:"Paste the raw email (with From/Reply-To lines) for a deeper check."});
+  }
+  // Message-level score uses the riskiest link, not the sum of all links.
+  let worst=null, worstScore=-1;
+  urls.forEach(u=>{ u.score=clamp(u.findings.reduce((a,x)=>a+x.pts,0)); if(u.score>worstScore){worstScore=u.score;worst=u;} });
+  const linkFindings = worst ? worst.findings.map(x=>urls.length>1?{...x,title:x.title,detail:x.detail+` (${worst.host})`}:x) : [];
+  const all=[...findings,...linkFindings].sort((a,b)=>b.pts-a.pts);
+  const score=clamp(all.reduce((a,x)=>a+x.pts,0));
+  return {score,findings:all,urls};
+}
+const clamp=n=>Math.max(0,Math.min(100,Math.round(n)));
+
+function highlight(u){
+  const s=esc(u.href||u.raw);
+  if(!u.reg||u.isIP) return s.replace(esc(u.host),`<mark>${esc(u.host)}</mark>`);
+  const i=s.toLowerCase().lastIndexOf(esc(u.reg));
+  return i<0?s:s.slice(0,i)+`<mark>${s.slice(i,i+u.reg.length)}</mark>`+s.slice(i+u.reg.length);
+}
+
+function level(score){
+  if(score>=60) return {c:"var(--red)",bg:"var(--red-bg)",label:"High risk",head:"Likely phishing — don’t click",sub:"Multiple strong signals point to a credential-stealing page."};
+  if(score>=25) return {c:"var(--amber)",bg:"var(--amber-bg)",label:"Suspicious",head:"Proceed with caution",sub:"Some red flags. Verify through a channel you trust before clicking."};
+  return {c:"var(--green)",bg:"var(--green-bg)",label:"Low risk",head:"No major red flags",sub:"Nothing obviously malicious — but no automated check is perfect."};
+}
+
+function render(r){
+  const L=level(r.score);
+  $("results").style.display="flex";
+  const g=$("gauge"); g.style.setProperty("--p",Math.max(r.score,2)); g.style.setProperty("--c",L.c);
+  g.setAttribute("aria-label",`Risk score ${r.score} out of 100, ${L.label}`);
+  $("score").textContent=r.score;
+  const b=$("badge"); b.textContent=L.label; b.style.color=L.c; b.style.background=L.bg;
+  $("headline").textContent=L.head; $("sub").textContent=L.sub;
+
+  $("findings").innerHTML = r.findings.length ? r.findings.map(x=>`
+    <li class="f ${x.sev}"><span class="dot" aria-hidden="true"></span>
+      <div class="f-body"><div class="f-title">${esc(x.title)}</div><div class="f-detail">${esc(x.detail)}</div></div>
+      <span class="pts">${x.pts>0?"+"+x.pts:x.pts<0?"−"+Math.abs(x.pts):"·"}</span></li>`).join("")
+    : `<li class="f good"><span class="dot"></span><div class="f-body"><div class="f-title">No red flags found</div></div></li>`;
+
+  $("urls").innerHTML = r.urls.length ? r.urls.map(u=>`
+    <div class="url">${highlight(u)}
+      <div class="meta"><span>Real domain: <strong>${esc(u.reg||u.host)}</strong></span><span>Link risk: <strong style="color:${level(u.score).c}">${u.score}</strong></span></div>
+    </div>`).join("") : `<p class="hint" style="margin:0">No links detected.</p>`;
+
+  const tips = r.score>=60
+    ? ["Don’t click the link or reply.","If it claims to be a company, open their site by typing the address yourself.","Report it (e.g. forward to reportphishing@apwg.org) and delete.","If you already entered a password, change it now and enable 2FA."]
+    : r.score>=25
+    ? ["Check the highlighted real domain — is it exactly who you expect?","Contact the sender through a known number or app, not this message.","Hover links before clicking to preview where they go."]
+    : ["The highlighted domain is the one that matters — make sure it’s who you expect.","Still be wary of unexpected requests for passwords or payments."];
+  $("tips").innerHTML=tips.map(t=>`<li>${esc(t)}</li>`).join("");
+}
+
+function run(){ const v=$("input").value; if(!v.trim()) return; render(analyze(v)); }
+$("go").addEventListener("click",run);
+$("input").addEventListener("keydown",e=>{
+  if(e.nativeEvent?.isComposing||e.isComposing||e.keyCode===229) return;
+  if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){ e.preventDefault(); run(); }
+});
+document.querySelectorAll("[data-sample]").forEach(btn=>btn.addEventListener("click",()=>{ $("input").value=SAMPLES[btn.dataset.sample]; run(); }));
+$("input").value=SAMPLES.url; run();
+</script>
+</body>
+</html>
